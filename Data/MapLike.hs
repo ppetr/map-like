@@ -9,6 +9,7 @@ import qualified Data.HashMap.Lazy as HL
 --import qualified Data.HashMap.Strict as HS
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+
 import           Data.Monoid hiding ((<>))
 import           Data.Semigroup
 
@@ -26,21 +27,27 @@ class MapLike full key item | full -> key item where
     empty       :: full
     member      :: key -> full -> Bool
     member      = (maybe False (const True) .) . lookup
+    {-# INLINE member #-}
     lookup      :: key -> full -> Maybe item
     lookup k    = getConstant . alterF k Constant
+    {-# INLINE lookup #-}
     insert      :: key -> item -> full -> full
     insert k v  = runIdentity . alterF k (const $ Identity (Replace v))
+    {-# INLINE insert #-}
     delete      :: key -> full -> full
     delete k    = runIdentity . alterF k (const $ Identity Remove)
+    {-# INLINE delete #-}
     singleton   :: key -> item -> full
     singleton k v = insert k v empty
+    {-# INLINE singleton #-}
     --(\\)        :: full -> full -> full
-    -- | Note also that @alterF :: key -> Lens full full (Maybe item) (Alter item)@
+    -- | An universal modification function that unifies 'insert', 'delete' and 'lookup'.
+    --
+    -- Note also that @alterF :: key -> Lens full full (Maybe item) (Alter item)@
     -- (see the @lens@ package).
     alterF      :: (Functor f) => key -> (Maybe item -> f (Alter item)) -> (full -> f full)
-    alterF k f m = fmap ins (f v)
+    alterF k f m = fmap ins (f $ lookup k m)
       where
-        v               = lookup k m
         ins Keep        = m
         ins Remove      = delete k m
         ins (Replace x) = insert k x m
@@ -56,29 +63,47 @@ instance (Eq key, Hashable key) => MapLike (HS.HashMap key item) key item where
 
 instance (Eq key, Hashable key) => MapLike (HL.HashMap key item) key item where
     empty       = HL.empty
+    {-# INLINE empty #-}
     lookup      = HL.lookup
+    {-# INLINE lookup #-}
     delete      = HL.delete
+    {-# INLINE delete #-}
     insert      = HL.insert
+    {-# INLINE insert #-}
     singleton   = HL.singleton
+    {-# INLINE singleton #-}
     unionWith   = HL.unionWith
+    {-# INLINE unionWith #-}
     --(\\)        = HL.difference
 
 instance (Ord key) => MapLike (M.Map key item) key item where
     empty       = M.empty
+    {-# INLINE empty #-}
     lookup      = M.lookup
+    {-# INLINE lookup #-}
     delete      = M.delete
+    {-# INLINE delete #-}
     insert      = M.insert
+    {-# INLINE insert #-}
     singleton   = M.singleton
+    {-# INLINE singleton #-}
     unionWith   = M.unionWith
+    {-# INLINE unionWith #-}
     --(\\)        = (S.\\)
 
 instance MapLike (IM.IntMap item) Int item where
     empty       = IM.empty
+    {-# INLINE empty #-}
     lookup      = IM.lookup
+    {-# INLINE lookup #-}
     delete      = IM.delete
+    {-# INLINE delete #-}
     insert      = IM.insert
+    {-# INLINE insert #-}
     singleton   = IM.singleton
+    {-# INLINE singleton #-}
     unionWith   = IM.unionWith
+    {-# INLINE unionWith #-}
     --(\\)        = (S.\\)
 
 -- | Represents maps that are unioned using a semigroup operation defined on
